@@ -147,6 +147,8 @@ impl std::ops::Sub for BigUint {
         Self{ digits: v }
     }
 }
+
+#[allow(dead_code)]
 fn powm(base: i64, exp: i64, modulo: i64) -> i64 {
     if exp <= 0 { return 1i64; }
     else if exp == 1 { return base; }
@@ -156,6 +158,7 @@ fn powm(base: i64, exp: i64, modulo: i64) -> i64 {
         else {(tmp * tmp % modulo as u128 * base as u128 % modulo as u128) as i64}
     }
 }
+
 struct NttTable{
     table: Vec<i64>,
     modulo: i64,
@@ -163,8 +166,15 @@ struct NttTable{
 }
 
 impl NttTable{
+    const MAX_SIZE: usize = 1 << 26;
     fn new(modulo: i64, prim_root: i64) -> Self {
-        
+        let mut t = Vec::with_capacity(NttTable::MAX_SIZE);
+        t.resize(NttTable::MAX_SIZE, 0);
+        Self{
+            table: t,
+            modulo,
+            prim_root
+        }
     }
 }
 /*

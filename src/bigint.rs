@@ -1,5 +1,6 @@
 use once_cell::sync::Lazy;
 
+#[allow(dead_code)]
 #[derive(Clone)]
 pub struct BigInt{
     digits: Vec<i64>,
@@ -11,6 +12,7 @@ pub struct BigUint{
     digits: Vec<u64>
 }
 
+#[allow(dead_code)]
 impl BigInt{
     const RADIX_DIGIT: usize = 5;
     const RADIX: i64 = 100000;
@@ -162,21 +164,123 @@ fn powm(base: i64, exp: i64, modulo: i64) -> i64 {
 struct NttTable{
     table: Vec<i64>,
     modulo: i64,
-    prim_root: i64
+    prim_root: i64, 
+    max_root_num: usize,
+    calc: usize
 }
 
 impl NttTable{
     const MAX_SIZE: usize = 1 << 26;
     fn new(modulo: i64, prim_root: i64) -> Self {
-        let mut t = Vec::with_capacity(NttTable::MAX_SIZE);
-        t.resize(NttTable::MAX_SIZE, 0);
+        let mut t = Vec::with_capacity(NttTable::MAX_SIZE + 1);
+        t.resize(NttTable::MAX_SIZE + 1, 0);
+        t[NttTable::MAX_SIZE] = 1;
+        
         Self{
             table: t,
             modulo,
-            prim_root
+            prim_root,
+            max_root_num: (modulo - 1 & -(modulo - 1)) as usize,
+            calc: 0
         }
     }
+    //2^ord乗根を計算
+    fn calculate(&mut self, ord: usize){
+        let add = NttTable::MAX_SIZE >> ord; 
+        if add == 0 || (add & self.calc) != 0 {return;}
+        let mut i = 0usize;
+        let mut root: u128 = 1;
+        let prim = powm(self.prim_root, (self.max_root_num >> ord) as i64, self.modulo);
+        while i < NttTable::MAX_SIZE {
+            if self.table[i] == 0 { self.table[i] = root as i64; }
+            root *= prim as u128;
+            root %= self.modulo as u128;
+            i += add;
+        }
+        self.calc |= (-(add as i64)) as usize;
+    }
+
+    fn trans_f(&mut self, dat: &Vec<u64>) -> Vec<u64> {
+        if dat.len() > NttTable::MAX_SIZE { panic!("vector too large"); }
+        let mut tmp = dat.clone();
+        let mut ord = 0;
+        if (dat.len() & 0xffffffff00000000 as usize) != 0 { ord += 32; }
+        if (dat.len() & 0xffff0000ffff0000 as usize) != 0 { ord += 16; }
+        if (dat.len() & 0xff00ff00ff00ff00 as usize) != 0 { ord += 8; }
+        if (dat.len() & 0xf0f0f0f0f0f0f0f0 as usize) != 0 { ord += 4; }
+        if (dat.len() & 0xcccccccccccccccc as usize) != 0 { ord += 2; }
+        if (dat.len() & 0xaaaaaaaaaaaaaaaa as usize) != 0 { ord += 1; }
+        self.calculate(ord);
+
+        let mut loop1 = 1usize;
+        let mut loop2 = tmp.len() / 2;
+        let mut dist = NttTable::MAX_SIZE / dat.len();
+        while loop2 != 0 {
+            let mut ind1: usize = 0;
+            let mut ind2: usize = loop2;
+            for _i in 0..loop1 {
+                let mut indr: usize = 0;
+                for _i in 0..loop2 {
+                    let t = tmp[ind1];
+                    tmp[ind1] += tmp[ind2];
+                    tmp[ind1] %= self.modulo as u64;
+                    tmp[ind2] = ((t as u128 + self.modulo as u128 - tmp[ind2] as u128) * self.table[indr] as u128 % self.modulo as u128) as u64;
+                    ind1 += 1;
+                    ind2 += 1;
+                    indr += dist;
+                }
+                ind1 += loop2;
+                ind2 += loop2;
+            }
+            dist <<= 1;
+            loop1 <<= 1;
+            loop2 >>= 1;
+        }
+        tmp
+    }
+
+    fn trans_t_i(&mut self, dat: &Vec<u64>) -> Vec<u64> {
+        if dat.len() > NttTable::MAX_SIZE { panic!("vector too large"); }
+        let mut tmp = dat.clone();
+        let mut ord = 0;
+        if (dat.len() & 0xffffffff00000000 as usize) != 0 { ord += 32; }
+        if (dat.len() & 0xffff0000ffff0000 as usize) != 0 { ord += 16; }
+        if (dat.len() & 0xff00ff00ff00ff00 as usize) != 0 { ord += 8; }
+        if (dat.len() & 0xf0f0f0f0f0f0f0f0 as usize) != 0 { ord += 4; }
+        if (dat.len() & 0xcccccccccccccccc as usize) != 0 { ord += 2; }
+        if (dat.len() & 0xaaaaaaaaaaaaaaaa as usize) != 0 { ord += 1; }
+        self.calculate(ord);
+
+        let mut loop1 = tmp.len() / 2;
+        let mut loop2 = 1usize;
+        let mut dist = NttTable::MAX_SIZE / 2;
+        while loop2 != 0 {
+            let mut ind1: usize = 0;
+            let mut ind2: usize = loop2;
+            for _i in 0..loop1 {
+                let mut indr: usize = NttTable::MAX_SIZE;
+                for _i in 0..loop2 {
+                    let t = tmp[ind1];
+                    tmp[ind2] = (tmp[ind2] as u128 * self.table[indr] as u128 & self.modulo as u128) as u64;
+                    tmp[ind1] += tmp[ind2];
+                    tmp[ind1] %= self.modulo as u64;
+                    tmp[ind2] = ((t as u128 + self.modulo as u128 - tmp[ind2] as u128)% self.modulo as u128) as u64;
+                    ind1 += 1;
+                    ind2 += 1;
+                    indr -= dist;
+                }
+                ind1 += loop2;
+                ind2 += loop2;
+            }
+            dist <<= 1;
+            loop1 >>= 1;
+            loop2 <<= 1;
+        }
+        tmp
+    }
 }
+
+
 /*
 impl std::ops::Mul for BigUint {
     type Output = Self;

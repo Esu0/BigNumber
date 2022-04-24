@@ -81,6 +81,10 @@ impl BigUint {
             v.pop();
         }
     }
+
+    pub fn get_vec(&self) -> Vec<i64>{
+        self.digits.clone()
+    }
 }
 
 impl std::fmt::Display for BigInt {
@@ -213,7 +217,7 @@ impl NttTable{
         if add == 0 || (add & self.calc) != 0 {return;}
         let mut i = 0usize;
         let mut root: u128 = 1;
-        let prim = powm(self.prim_root, (self.max_root_num >> ord) as i64, self.modulo);
+        let prim = powm(self.prim_root, ((self.modulo - 1) >> ord) as i64, self.modulo);
         while i < NttTable::MAX_SIZE {
             if self.table[i] == 0 { self.table[i] = root as i64; }
             root *= prim as u128;
@@ -325,7 +329,7 @@ fn convolution(num1: &Vec<i64>, num2: &Vec<i64>) -> Vec<i64> {
     let mut result = t.trans_f(num1, len, ord);
     let tmp = t.trans_f(num2, len, ord);
     t.hadamard(&mut result, tmp);
-    let mut result = t.trans_t_i(&result, len, ord);
+    result = t.trans_t_i(&result, len, ord);
     result.resize(num1.len() + num2.len(), 0);
     t.scale(&mut result, len);
     result

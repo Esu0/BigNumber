@@ -32,5 +32,5 @@ fn it_work()
     let a = BigUint::new("9999999999");
     let b = BigUint::new("9999999999");
     let c = a * b;
-    println!("{}", c);
+    println!("{:?}", c.get_vec());
 }

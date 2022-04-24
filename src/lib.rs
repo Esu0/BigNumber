@@ -29,8 +29,9 @@ use bigint::BigUint;
 #[test]
 fn it_work()
 {
-    let a = BigUint::new("9999999999");
-    let b = BigUint::new("9999999999");
-    let c = a * b;
+    let a = BigUint::new_rand(100);
+    let b = BigUint::new_rand(100);
+    let c = a.clone() * b.clone();
     println!("{:?}", c.get_vec());
+    println!("{} * {} = {}", a, b, c);
 }

@@ -1,6 +1,7 @@
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 use std::cell::RefCell;
+use rand::Rng;
 
 #[allow(dead_code)]
 #[derive(Clone)]
@@ -76,12 +77,38 @@ impl BigUint {
         }
     }
 
+    pub fn new_rand(digits10: usize) -> Self {
+        let mut rng = rand::thread_rng();
+        let lp = (digits10 - 1) / BigUint::RADIX_DIGIT;
+        let mut v = Vec::with_capacity(lp + 1);
+        for _i in 0..lp {
+            v.push(rng.gen_range(0..BigUint::RADIX));
+        }
+        v.push(rng.gen_range(0..(10i64.pow(((digits10 - 1) % BigUint::RADIX_DIGIT + 1) as u32))));
+        BigUint::del_zero(&mut v);
+        BigUint{
+            digits: v
+        }
+    }
+
     fn del_zero(v: &mut Vec<i64>){
         while v.len() > 1 && *v.last().unwrap() == 0 {
             v.pop();
         }
     }
 
+    fn fix_carry(v: &mut Vec<i64>){
+        let mut carry = 0i64;
+        for i in 0..v.len() {
+            v[i] += carry;
+            carry = v[i] / BigUint::RADIX;
+            v[i] %= BigUint::RADIX;
+        }
+        while carry > 0 {
+            v.push(carry % BigUint::RADIX);
+            carry /= BigUint::RADIX;
+        }
+    }
     pub fn get_vec(&self) -> Vec<i64>{
         self.digits.clone()
     }
@@ -107,8 +134,13 @@ impl std::fmt::Display for BigInt {
 
 impl std::fmt::Display for BigUint {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result{
-        for elem in self.digits.iter().rev() {
-            match write!(f, "{}", *elem) {
+        match write!(f, "{}", *self.digits.last().unwrap()) {
+            Ok(_n) => {},
+            Err(m) => { return Err(m); }
+        }
+        let l = self.digits.len() - 1;
+        for elem in self.digits[..l].iter().rev() {
+            match write!(f, "{:<05}", *elem) {
                 Ok(_n) => {},
                 Err(m) => { return Err(m); }
             }
@@ -197,7 +229,7 @@ struct NttTable{
 }
 
 impl NttTable{
-    const MAX_SIZE: usize = 1 << 4;
+    const MAX_SIZE: usize = 1 << 26;
     fn new(modulo: i64, prim_root: i64) -> Self {
         let mut t = Vec::with_capacity(NttTable::MAX_SIZE + 1);
         t.resize(NttTable::MAX_SIZE + 1, 0);
@@ -298,6 +330,7 @@ impl NttTable{
         tmp
     }
 
+    //アダマール積
     fn hadamard(&self, v1: &mut Vec<i64>, v2: Vec<i64>) {
         if v1.len() != v2.len() {panic!("not same size in Hadamard");}
         for (i, elem) in v2.iter().enumerate() {
@@ -319,6 +352,7 @@ fn convolution(num1: &Vec<i64>, num2: &Vec<i64>) -> Vec<i64> {
     let t_mtx = TBL.lock().unwrap();
     let mut t = t_mtx.borrow_mut();
     let mut len = num1.len() + num2.len();
+    let len_c = len;
     let mut ord = 0;
     if (len & 0xffffffff00000000 as usize) != 0 { ord += 32; len &= 0xffffffff00000000; }
     if (len & 0xffff0000ffff0000 as usize) != 0 { ord += 16; len &= 0xffff0000ffff0000; }
@@ -326,6 +360,7 @@ fn convolution(num1: &Vec<i64>, num2: &Vec<i64>) -> Vec<i64> {
     if (len & 0xf0f0f0f0f0f0f0f0 as usize) != 0 { ord += 4; len &= 0xf0f0f0f0f0f0f0f0; }
     if (len & 0xcccccccccccccccc as usize) != 0 { ord += 2; len &= 0xcccccccccccccccc; }
     if (len & 0xaaaaaaaaaaaaaaaa as usize) != 0 { ord += 1; len &= 0xaaaaaaaaaaaaaaaa; }
+    if len < len_c { len <<= 1; ord += 1; } 
     let mut result = t.trans_f(num1, len, ord);
     let tmp = t.trans_f(num2, len, ord);
     t.hadamard(&mut result, tmp);
@@ -340,6 +375,8 @@ impl std::ops::Mul for BigUint {
     type Output = Self;
     fn mul(self, other: Self) -> Self {
         let mut v = convolution(&self.digits, &other.digits);
+        let a = 0;
+        BigUint::fix_carry(&mut v);
         BigUint::del_zero(&mut v);
         BigUint{
             digits: v

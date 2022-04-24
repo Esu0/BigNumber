@@ -3,6 +3,7 @@ use std::time::{Duration, Instant};
 
 #[cfg(test)]
 mod tests {
+    /*
     #[test]
     fn i128_benchmark() {
         use std::time::{Duration, Instant};
@@ -21,13 +22,15 @@ mod tests {
         let end = start.elapsed();
         println!("{}", end.as_secs_f32());
     }
+    */
 }
 
-use bigint::*;
+use bigint::BigUint;
 #[test]
 fn it_work()
 {
     let a = BigUint::new("9999999999");
     let b = BigUint::new("9999999999");
-    println!("{}", a + b);
+    let c = a * b;
+    println!("{:?}", c.get_vec());
 }

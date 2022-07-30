@@ -27,11 +27,25 @@ mod tests {
 
 use bigint::BigUint;
 #[test]
-fn it_work()
-{
-    let a = BigUint::new_rand(100);
-    let b = BigUint::new_rand(100);
-    let c = a.clone() * b.clone();
-    println!("{:?}", c.get_vec());
-    println!("{} * {} = {}", a, b, c);
+fn it_work() {
+    let a = BigUint::new_rand(1000000);
+    let b = BigUint::new_rand(1000000);
+    let start = Instant::now();
+    let c = a * b;
+    let end = start.elapsed();
+    println!("{}", end.as_secs_f64());
+    println!("{}", c.len());
+    //println!("{:?}", c.get_vec());
+    //println!("{} * {} = {}", a, b, c);
+}
+
+#[test]
+fn vec_test() {
+    let s = 10000000;
+    let mut v = Vec::with_capacity(s);
+    v.resize(s, 100i32);
+    let start = Instant::now();
+    let ac = std::sync::Arc::new(v);
+    println!("execution time: {} sec", start.elapsed().as_secs_f64());
+    //println!("{}", v.len());
 }
